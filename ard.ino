@@ -34,7 +34,7 @@ void executerCommande() {
       tournerRoulette(45);  // Example: turn towards the plastic bin
       break;
     case '3':
-      // Add your action for the third case
+      tournerRoulette(90);  // Example: turn towards the third bin
       break;
     // Add more cases for additional commands if needed
   }
