@@ -1,35 +1,69 @@
 import cv2
+import os
+import numpy as np
+import serial
+import urllib.request
 
-def capture_screen():
-    # Remplacez cette fonction par votre propre logique de capture d'écran
-    # (peut-être à l'aide de la bibliothèque pyautogui, par exemple)
-    pass
+ser = serial.Serial('COM4', 9600)
 
-def process_image():
-    # Utilisez OpenCV pour le traitement d'image (à ajouter)
-    # Remplacez cette fonction par le code OpenCV réel pour la détection de déchets
-    # Simulation : valeurs de luminosité des pixels (à remplacer par votre propre logique)
-    red_value = 100  # Valeur de luminosité rouge simulée
-    green_value = 80  # Valeur de luminosité verte simulée
-    blue_value = 60   # Valeur de luminosité bleue simulée
+# URL of the IP Webcam
+url_ipwebcam = 'http://192.168.1.104:8080/shot.jpg'
+video = cv2.VideoCapture(url_ipwebcam)
 
-    # Simulation d'une détection de couleur (à remplacer par votre propre logique)
-    if red_value > green_value and red_value > blue_value:
-        return 1  # Type de déchet 1
-    elif green_value > red_value and green_value > blue_value:
-        return 2  # Type de déchet 2
-    else:
-        return 3  # Type de déchet 3
+# Load class names
+class_names = []
+class_folder = 'santa'
+for class_folder_name in os.listdir(class_folder):
+    class_path = os.path.join(class_folder, class_folder_name)
+    if os.path.isdir(class_path):
+        class_names.append(class_folder_name)
 
-# Boucle de traitement sur le PC
+# Load the trained model
+config_path = 'santa.cfg'
+weight_path = 'santa.weights'
+
+net = cv2.dnn_DetectionModel(weight_path, config_path)
+net.setInputSize(416, 416)
+net.setInputScale(1.0 / 255)
+net.setInputSwapRB(True)
+
+# Create a window named "Output" with automatic size adjustment
+cv2.namedWindow("Output", cv2.WINDOW_AUTOSIZE)
+
 while True:
-    if "CaptureScreen" in input():
-        print("Capture d'écran reçue...")
-        # Capture d'écran avec votre propre logique (à remplacer)
-        captured_image = capture_screen()
+    try:
+        # Read the image from the IP Webcam
+        ipwebcam_img_array = urllib.request.urlopen(url_ipwebcam).read()
+        img = cv2.imdecode(np.array(bytearray(ipwebcam_img_array), dtype=np.uint8), -1)
 
-        # Traitement d'image avec OpenCV (à ajouter)
-        waste_type = process_image()
+        # Object detection
+        class_ids, confs, bbox = net.detect(img, confThreshold=0.5)
 
-        # Envoyer le résultat au Arduino (à ajuster en fonction de votre protocole)
-        print(f"WasteType:{waste_type}")
+        if len(class_ids) != 0:
+            # Draw bounding boxes and labels on the image
+            for class_id, confidence, box in zip(class_ids.flatten(), confs.flatten(), bbox):
+                cv2.rectangle(img, box, color=(0, 255, 0), thickness=2)
+                cv2.putText(img, class_names[class_id - 1], (box[0] + 10, box[1] + 20),
+                            cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), thickness=2)
+
+                # Send a signal to Arduino based on the detected waste type
+                waste_type = class_names[class_id - 1]
+                if waste_type == 'metal_waste':
+                    ser.write(b'1')  # Send '1' to the serial port for metal waste
+                elif waste_type == 'paper_waste':
+                    ser.write(b'2')  # Send '2' to the serial port for paper waste
+                elif waste_type == 'plastic_waste':
+                    ser.write(b'3')  # Send '3' to the serial port for plastic waste
+
+        # Display the image from the IP Webcam in the "Output" window
+        cv2.imshow('Output', img)
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+    # Wait for a short period (1 millisecond) and check if the 'q' key is pressed to exit
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources and destroy the window when exiting
+cv2.destroyAllWindows()
