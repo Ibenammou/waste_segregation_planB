@@ -4,23 +4,26 @@ import numpy as np
 import serial
 import urllib.request
 
-ser = serial.Serial('COM4', 9600)
+ser = serial.Serial('COM3', 9600)  # Replace 'COM3' with the correct COM port
 
 # URL of the IP Webcam
-url_ipwebcam = 'http://192.168.1.104:8080/shot.jpg'
+url_ipwebcam = 'http://192.168.1.9:8080/shot.jpg'
 video = cv2.VideoCapture(url_ipwebcam)
 
 # Load class names
 class_names = []
-class_folder = 'santa'
+class_folder = r'C:\\Users\\Windownet\\Desktop\\waste segregation\\santa'
+
+# List all subfolders (class names) in the 'santa' folder
 for class_folder_name in os.listdir(class_folder):
     class_path = os.path.join(class_folder, class_folder_name)
     if os.path.isdir(class_path):
         class_names.append(class_folder_name)
 
 # Load the trained model
-config_path = 'santa.cfg'
-weight_path = 'santa.weights'
+# Update the paths to your configuration and weights files
+config_path = r'C:\\Users\\Windownet\\Desktop\\planb\\yolov3.cfg'
+weight_path = r'C:\\Users\\Windownet\\Desktop\\planb\\yolov3.weights'
 
 net = cv2.dnn_DetectionModel(weight_path, config_path)
 net.setInputSize(416, 416)
